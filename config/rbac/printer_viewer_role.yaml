@@ -1,0 +1,20 @@
+# permissions for end users to view printers.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: printer-viewer-role
+rules:
+- apiGroups:
+  - task.my.domain
+  resources:
+  - printers
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - task.my.domain
+  resources:
+  - printers/status
+  verbs:
+  - get

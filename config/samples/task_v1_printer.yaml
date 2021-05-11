@@ -1,0 +1,8 @@
+apiVersion: task.my.domain/v1
+kind: Printer
+metadata:
+  name: printer-mc
+spec:
+  # Add fields here
+  name: dfdfdfdfdfdf
+  size: 33
