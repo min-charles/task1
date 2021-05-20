@@ -22,6 +22,9 @@ import (
 
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -36,6 +39,8 @@ type PrinterReconciler struct {
 	Log    logr.Logger
 	Scheme *runtime.Scheme
 }
+
+var c client.Client
 
 //+kubebuilder:rbac:groups=task.my.domain,resources=printers,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=task.my.domain,resources=printers/status,verbs=get;update;patch
@@ -79,62 +84,48 @@ func (r *PrinterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	log.Info("SPEC NAME !!!!!! " + Printer.Spec.Name)
 	log.Info("SPEC SIZE !!!!!! " + strconv.FormatInt(int64(Printer.Spec.Size), 10))
 
-	// Check if the deployment already exists, if not create a new one
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "task1-system",
+			Name:      "log-printer-pod",
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Image: "nginx",
+					Name:  "log-printer-ctn",
+					// Env: []corev1.EnvVar{
+					// 	Name:  "PrinterName",
+					// 	Value: "Printer.Spec.Name",
+					// },
+				},
+			},
+		},
+	}
+
+	_ = c.Create(context.Background(), pod)
+
+	log.Info("come on")
+
+	// pod = &corev1.Pod{
+	// 	Spec: corev1.PodSpec{
+	// 		Containers: []corev1.Container{
+	// 			{
+	// 				Env: []corev1.EnvVar{
+	// 					{
+	// 						Name:  "PrinterName",
+	// 						Value: "Printer.Spec.Name",
+	// 					},
+	// 				},
+	// 				Name: "test-container",
+	// 			},
+	// 		},
+	// 	},
+
+	// }
+
 	return ctrl.Result{}, nil
 }
-
-// deploymentForPrinter returns a Printer Deployment object
-// func (r *PrinterReconciler) deploymentForPrinter(m *taskv1.Printer) *appsv1.Deployment {
-// 	ls := labelsForPrinter(m.Name)
-// 	replicas := m.Spec.Size
-
-// 	dep := &appsv1.Deployment{
-// 		ObjectMeta: metav1.ObjectMeta{
-// 			Name:      m.Name,
-// 			Namespace: m.Namespace,
-// 		},
-// 		Spec: appsv1.DeploymentSpec{
-// 			Replicas: &replicas,
-// 			Selector: &metav1.LabelSelector{
-// 				MatchLabels: ls,
-// 			},
-// 			Template: corev1.PodTemplateSpec{
-// 				ObjectMeta: metav1.ObjectMeta{
-// 					Labels: ls,
-// 				},
-// 				Spec: corev1.PodSpec{
-// 					Containers: []corev1.Container{{
-// 						Image:   "Printer:1.4.36-alpine",
-// 						Name:    "Printer",
-// 						Command: []string{"Printer", "-m=64", "-o", "modern", "-v"},
-// 						Ports: []corev1.ContainerPort{{
-// 							ContainerPort: 11211,
-// 							Name:          "Printer",
-// 						}},
-// 					}},
-// 				},
-// 			},
-// 		},
-// 	}
-// 	// Set Printer instance as the owner and controller
-// 	ctrl.SetControllerReference(m, dep, r.Scheme)
-// 	return dep
-// }
-
-// labelsForPrinter returns the labels for selecting the resources
-// belonging to the given Printer CR name.
-// func labelsForPrinter(name string) map[string]string {
-// 	return map[string]string{"app": "Printer", "Printer_cr": name}
-// }
-
-// // getPodNames returns the pod names of the array of pods passed in
-// func getPodNames(pods []corev1.Pod) []string {
-// 	var podNames []string
-// 	for _, pod := range pods {
-// 		podNames = append(podNames, pod.Name)
-// 	}
-// 	return podNames
-// }
 
 func (r *PrinterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
