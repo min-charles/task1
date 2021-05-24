@@ -1,8 +1,9 @@
 apiVersion: task.my.domain/v1
 kind: Printer
 metadata:
-  name: printer-mc
+  name: printer-task2
+  namespace: task1-system
 spec:
   # Add fields here
   name: mincheol
-  size: 30
+  size: 10

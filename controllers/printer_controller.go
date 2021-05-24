@@ -24,11 +24,13 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	taskv1 "github.com/min-charles/task1.git/api/v1"
 )
@@ -40,13 +42,11 @@ type PrinterReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-var c client.Client
-
 //+kubebuilder:rbac:groups=task.my.domain,resources=printers,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=task.my.domain,resources=printers/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=task.my.domain,resources=printers/finalizers,verbs=update
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;
+//+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;create
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -70,8 +70,6 @@ func (r *PrinterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
-
-			//지워지면 여기
 			log.Info("Printer resource not found. Ignoring since object must be deleted")
 
 			return ctrl.Result{}, nil
@@ -84,45 +82,55 @@ func (r *PrinterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	log.Info("SPEC NAME !!!!!! " + Printer.Spec.Name)
 	log.Info("SPEC SIZE !!!!!! " + strconv.FormatInt(int64(Printer.Spec.Size), 10))
 
-	pod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "task1-system",
-			Name:      "log-printer-pod",
-		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Image: "nginx",
-					Name:  "log-printer-ctn",
-					// Env: []corev1.EnvVar{
-					// 	Name:  "PrinterName",
-					// 	Value: "Printer.Spec.Name",
-					// },
+	// check if printing pod is already existing//
+	found := &corev1.Pod{}
+	err = r.Get(ctx, types.NamespacedName{Name: "log-printer-pod", Namespace: "task1-system"}, found)
+	log.Info("Already existing pod: " + found.ObjectMeta.Name)
+
+	if err != nil && errors.IsNotFound(err) {
+		// declare pod which prints CR spec//
+		pod := &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "task1-system",
+				Name:      "log-printer-pod",
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Image:           "lmch0000/log-printer:latest", // "PrinterName" EnvVar print image
+						Name:            "log-printer-ctn",
+						ImagePullPolicy: corev1.PullAlways,
+						Env: []corev1.EnvVar{ // declare CR spec printed
+							{
+								Name:  "PrinterName",
+								Value: Printer.Spec.Name,
+							},
+						},
+					},
 				},
 			},
-		},
+		}
+
+		//Set OwnerReference//
+		if err2 := controllerutil.SetOwnerReference(Printer, pod, r.Scheme); err2 != nil {
+			return ctrl.Result{}, err2
+		}
+
+		/////Pod 생성////////
+		err = r.Client.Create(context.Background(), pod)
+
+		if err != nil {
+			// Error reading the object - requeue the request.
+			log.Error(err, "Fail to create pod")
+			return ctrl.Result{}, err
+		}
+
+		return ctrl.Result{}, nil
+
+	} else if err != nil {
+		log.Error(err, "Failed to get Pod")
+		return ctrl.Result{}, err
 	}
-
-	_ = c.Create(context.Background(), pod)
-
-	log.Info("come on")
-
-	// pod = &corev1.Pod{
-	// 	Spec: corev1.PodSpec{
-	// 		Containers: []corev1.Container{
-	// 			{
-	// 				Env: []corev1.EnvVar{
-	// 					{
-	// 						Name:  "PrinterName",
-	// 						Value: "Printer.Spec.Name",
-	// 					},
-	// 				},
-	// 				Name: "test-container",
-	// 			},
-	// 		},
-	// 	},
-
-	// }
 
 	return ctrl.Result{}, nil
 }

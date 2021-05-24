@@ -48,6 +48,7 @@ func init() {
 	//+kubebuilder:scaffold:scheme
 }
 
+//+kubebuilder:rbac:groups=core,resources=configmaps,resourceNames=45942136.my.domain,verbs=get;list;
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
