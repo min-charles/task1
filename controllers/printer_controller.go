@@ -97,7 +97,7 @@ func (r *PrinterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			Spec: corev1.PodSpec{
 				Containers: []corev1.Container{
 					{
-						Image:           "lmch0000/log-printer:latest", // "PrinterName" EnvVar print image
+						Image:           "lmch0000/log-printer:latest", // EnvVar "PrinterName" printing image
 						Name:            "log-printer-ctn",
 						ImagePullPolicy: corev1.PullAlways,
 						Env: []corev1.EnvVar{ // declare CR spec printed
